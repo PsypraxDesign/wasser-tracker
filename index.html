@@ -1007,6 +1007,38 @@
             }
         }
 
+        // ===== JSONP HELPER =====
+        function jsonp(url) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const script = document.createElement('script');
+                
+                const timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Timeout'));
+                }, 10000);
+                
+                function cleanup() {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                }
+                
+                window[callbackName] = function(data) {
+                    cleanup();
+                    resolve(data);
+                };
+                
+                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                script.onerror = function() {
+                    cleanup();
+                    reject(new Error('Script laden fehlgeschlagen'));
+                };
+                
+                document.body.appendChild(script);
+            });
+        }
+
         // ===== GOOGLE SHEETS SYNC =====
         async function syncToServer() {
             if (!scriptUrl) return;
@@ -1015,7 +1047,7 @@
             
             try {
                 const url = `${scriptUrl}?action=save&date=${todayData.date}&glasses=${todayData.glasses}`;
-                const response = await fetch(url, { mode: 'no-cors' });
+                await jsonp(url);
                 updateSyncStatus('synced', 'Synchronisiert');
             } catch (error) {
                 console.error('Sync error:', error);
@@ -1032,22 +1064,18 @@
             updateSyncStatus('syncing', 'Lade vom Server...');
             
             try {
-                const response = await fetch(`${scriptUrl}?action=get`);
-                const result = await response.json();
+                const result = await jsonp(`${scriptUrl}?action=get`);
                 
                 if (result.success && result.data) {
-                    // Merge mit lokalen Daten
                     result.data.forEach(serverDay => {
                         const localIndex = history.findIndex(h => h.date === serverDay.date);
                         if (localIndex >= 0) {
-                            // Server-Daten überschreiben lokal
                             history[localIndex].glasses = serverDay.glasses;
                         } else {
                             history.push(serverDay);
                         }
                     });
                     
-                    // Heute aktualisieren
                     const today = getTodayString();
                     const todayFromServer = result.data.find(d => d.date === today);
                     if (todayFromServer) {
@@ -1091,7 +1119,7 @@
             try {
                 let successCount = 0;
                 for (const day of allData) {
-                    await fetch(`${scriptUrl}?action=save&date=${day.date}&glasses=${day.glasses}`, { mode: 'no-cors' });
+                    await jsonp(`${scriptUrl}?action=save&date=${day.date}&glasses=${day.glasses}`);
                     successCount++;
                 }
                 updateSyncStatus('synced', 'Gesendet!');
@@ -1129,8 +1157,7 @@
             connectionStatus.innerHTML = '<span>🟡</span> Teste...';
             
             try {
-                const response = await fetch(`${scriptUrl}?action=get`);
-                const result = await response.json();
+                const result = await jsonp(`${scriptUrl}?action=get`);
                 
                 if (result.success) {
                     connectionStatus.className = 'connection-status connected';
