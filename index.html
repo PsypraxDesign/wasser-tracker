@@ -27,6 +27,7 @@
             --color-water: #38bdf8;
             --color-water-light: #7dd3fc;
             --color-success: #4ade80;
+            --color-warning: #fbbf24;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
@@ -108,6 +109,40 @@
             font-size: 0.9rem;
             cursor: pointer;
             padding: 0.5rem;
+        }
+
+        /* Sync Status */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-success);
+        }
+
+        .sync-dot.syncing {
+            background: var(--color-warning);
+            animation: pulse 1s infinite;
+        }
+
+        .sync-dot.offline {
+            background: var(--color-text-muted);
+        }
+
+        .sync-dot.error {
+            background: #f87171;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* ===== TRACKER SCREEN ===== */
@@ -364,16 +399,70 @@
             margin-top: 0.25rem;
         }
 
-        /* Export */
-        .export-section {
-            padding: 0 1rem 1rem;
+        /* ===== SETTINGS SCREEN ===== */
+        .settings-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
         }
 
-        .export-info {
-            font-size: 0.75rem;
+        .settings-section {
+            background: var(--color-surface);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .settings-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .settings-desc {
+            font-size: 0.85rem;
             color: var(--color-text-muted);
-            text-align: center;
-            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 0.875rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            background: var(--color-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--color-text);
+            margin-bottom: 0.75rem;
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--color-water);
+        }
+
+        .settings-input::placeholder {
+            color: var(--color-text-muted);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--color-bg);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .connection-status.connected {
+            color: var(--color-success);
+        }
+
+        .connection-status.disconnected {
+            color: var(--color-text-muted);
         }
 
         /* ===== ANIMATIONS ===== */
@@ -387,10 +476,10 @@
             animation: celebrate 0.4s ease;
         }
 
-        /* ===== OFFLINE INDICATOR ===== */
+        /* ===== OFFLINE BAR ===== */
         .offline-bar {
             display: none;
-            background: #f59e0b;
+            background: var(--color-warning);
             color: #000;
             text-align: center;
             padding: 0.4rem;
@@ -430,7 +519,7 @@
                 margin: 0 auto;
             }
 
-            .stats-content {
+            .stats-content, .settings-content {
                 max-width: 500px;
                 margin: 0 auto;
             }
@@ -438,13 +527,17 @@
     </style>
 </head>
 <body>
-    <div class="offline-bar">Offline – Daten werden lokal gespeichert</div>
+    <div class="offline-bar">Offline – Änderungen werden später synchronisiert</div>
 
     <!-- ===== TRACKER SCREEN ===== -->
     <div class="screen" id="trackerScreen">
         <header class="header">
             <div>
                 <div class="header-date" id="dateDisplay"></div>
+                <div class="sync-status">
+                    <span class="sync-dot" id="syncDot"></span>
+                    <span id="syncText">Lokal</span>
+                </div>
             </div>
             <div class="header-time" id="currentTime">00:00</div>
             <button class="header-btn" onclick="showStats()">Statistik →</button>
@@ -487,7 +580,7 @@
             </button>
             <div class="btn-row">
                 <button class="btn" onclick="undoGlass()">↩ Zurück</button>
-                <button class="btn" onclick="resetToday()">🔄 Reset</button>
+                <button class="btn" onclick="showSettings()">⚙ Sync</button>
             </div>
         </div>
     </div>
@@ -525,11 +618,53 @@
                 <div class="stats-card-subtitle" id="weekAvg">Ø 0 Gläser pro Tag</div>
                 <div class="chart" id="chart"></div>
             </div>
-        </div>
 
-        <div class="export-section">
-            <button class="btn btn-outline" onclick="exportCSV()">📊 Als CSV exportieren</button>
-            <div class="export-info">Alle Daten herunterladen für Excel</div>
+            <button class="btn btn-outline" onclick="exportCSV()" style="width: 100%;">📊 Als CSV exportieren</button>
+        </div>
+    </div>
+
+    <!-- ===== SETTINGS SCREEN ===== -->
+    <div class="screen hidden" id="settingsScreen">
+        <header class="header">
+            <button class="header-btn" onclick="showTracker()">← Zurück</button>
+            <span class="header-title">Synchronisation</span>
+            <div style="width: 60px;"></div>
+        </header>
+
+        <div class="settings-content">
+            <div class="settings-section">
+                <div class="settings-title">Google Sheets Verbindung</div>
+                <div class="settings-desc">
+                    Füge hier die URL deines Google Apps Scripts ein, um die Daten mit Google Sheets zu synchronisieren.
+                </div>
+                <input type="text" class="settings-input" id="scriptUrl" placeholder="https://script.google.com/macros/s/...">
+                <div class="btn-row">
+                    <button class="btn" onclick="saveScriptUrl()">Speichern</button>
+                    <button class="btn" onclick="testConnection()">Testen</button>
+                </div>
+                <div class="connection-status disconnected" id="connectionStatus" style="margin-top: 0.75rem;">
+                    <span>⚪</span> Nicht verbunden
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-title">Manuelle Synchronisation</div>
+                <div class="settings-desc">
+                    Lade alle Daten vom Server oder sende lokale Daten zum Server.
+                </div>
+                <div class="btn-row">
+                    <button class="btn" onclick="pullFromServer()">⬇ Vom Server laden</button>
+                    <button class="btn" onclick="pushToServer()">⬆ Zum Server senden</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-title">Lokale Daten</div>
+                <div class="settings-desc" id="localDataInfo">
+                    0 Tage gespeichert
+                </div>
+                <button class="btn btn-outline" onclick="clearLocalData()" style="width: 100%;">🗑 Lokale Daten löschen</button>
+            </div>
         </div>
     </div>
 
@@ -541,6 +676,8 @@
         // ===== STATE =====
         let todayData = { glasses: 0, date: '' };
         let history = [];
+        let scriptUrl = '';
+        let syncStatus = 'local'; // local, syncing, synced, error
         
         // ===== DOM =====
         const waterFill = document.getElementById('waterFill');
@@ -554,6 +691,11 @@
         const chartEl = document.getElementById('chart');
         const trackerScreen = document.getElementById('trackerScreen');
         const statsScreen = document.getElementById('statsScreen');
+        const settingsScreen = document.getElementById('settingsScreen');
+        const syncDot = document.getElementById('syncDot');
+        const syncText = document.getElementById('syncText');
+        const scriptUrlInput = document.getElementById('scriptUrl');
+        const connectionStatus = document.getElementById('connectionStatus');
         
         const BOTTLE_TOP = 45;
         const BOTTLE_BOTTOM = 190;
@@ -576,11 +718,21 @@
             updateStatsScreen();
             trackerScreen.classList.add('hidden-left');
             statsScreen.classList.remove('hidden');
+            settingsScreen.classList.add('hidden');
         }
 
         function showTracker() {
             trackerScreen.classList.remove('hidden-left');
             statsScreen.classList.add('hidden');
+            settingsScreen.classList.add('hidden');
+        }
+
+        function showSettings() {
+            scriptUrlInput.value = scriptUrl;
+            updateLocalDataInfo();
+            trackerScreen.classList.add('hidden-left');
+            statsScreen.classList.add('hidden');
+            settingsScreen.classList.remove('hidden');
         }
 
         // ===== HELPERS =====
@@ -616,6 +768,28 @@
             }
         }
 
+        // ===== SYNC STATUS =====
+        function updateSyncStatus(status, text) {
+            syncStatus = status;
+            syncDot.className = 'sync-dot';
+            
+            if (status === 'syncing') {
+                syncDot.classList.add('syncing');
+                syncText.textContent = text || 'Synchronisiere...';
+            } else if (status === 'synced') {
+                syncText.textContent = text || 'Synchronisiert';
+            } else if (status === 'error') {
+                syncDot.classList.add('error');
+                syncText.textContent = text || 'Sync-Fehler';
+            } else if (status === 'offline') {
+                syncDot.classList.add('offline');
+                syncText.textContent = text || 'Offline';
+            } else {
+                syncDot.classList.add('offline');
+                syncText.textContent = text || 'Lokal';
+            }
+        }
+
         // ===== DISPLAY UPDATE =====
         function updateDisplay() {
             const glasses = todayData.glasses;
@@ -645,7 +819,6 @@
         function updateStatsScreen() {
             const today = getTodayString();
             
-            // Alle Daten (Historie + Heute)
             const allData = [...history];
             const todayIndex = allData.findIndex(d => d.date === today);
             if (todayIndex >= 0) {
@@ -654,7 +827,6 @@
                 allData.push({ date: today, glasses: todayData.glasses });
             }
             
-            // Summary berechnen
             const totalDays = allData.length;
             const goalDays = allData.filter(d => d.glasses >= TOTAL_GLASSES).length;
             const totalGlasses = allData.reduce((sum, d) => sum + d.glasses, 0);
@@ -666,7 +838,6 @@
             document.getElementById('goalDays').textContent = goalDays;
             document.getElementById('totalLiters').textContent = totalLiters;
             
-            // Letzte 7 Tage
             const last7Days = [];
             for (let i = 6; i >= 0; i--) {
                 const date = new Date();
@@ -689,7 +860,6 @@
             const weekAvg = weekDaysWithData > 0 ? (weekTotal / weekDaysWithData).toFixed(1) : 0;
             document.getElementById('weekAvg').textContent = `Ø ${weekAvg} Gläser pro Tag`;
             
-            // Chart rendern
             chartEl.innerHTML = '';
             const maxHeight = 90;
             
@@ -738,6 +908,9 @@
                 setTimeout(() => waterFill.classList.remove('celebrate'), 400);
                 
                 if (navigator.vibrate) navigator.vibrate(30);
+                
+                // Sync to server
+                syncToServer();
             }
         }
 
@@ -745,13 +918,7 @@
             if (todayData.glasses > 0) {
                 todayData.glasses--;
                 updateDisplay();
-            }
-        }
-
-        function resetToday() {
-            if (todayData.glasses > 0 && confirm('Heute zurücksetzen?')) {
-                todayData.glasses = 0;
-                updateDisplay();
+                syncToServer();
             }
         }
 
@@ -796,7 +963,7 @@
             }
         }
 
-        // ===== STORAGE =====
+        // ===== LOCAL STORAGE =====
         function saveToHistory(date, glasses) {
             if (glasses > 0) {
                 const existingIndex = history.findIndex(h => h.date === date);
@@ -813,15 +980,16 @@
         function saveState() {
             todayData.date = getTodayString();
             saveToHistory(todayData.date, todayData.glasses);
-            localStorage.setItem('waterTrackerPWA', JSON.stringify({ todayData, history }));
+            localStorage.setItem('waterTrackerSync', JSON.stringify({ todayData, history, scriptUrl }));
         }
 
         function loadState() {
             try {
-                const saved = localStorage.getItem('waterTrackerPWA');
+                const saved = localStorage.getItem('waterTrackerSync');
                 if (saved) {
                     const state = JSON.parse(saved);
                     history = state.history || [];
+                    scriptUrl = state.scriptUrl || '';
                     
                     const today = getTodayString();
                     if (state.todayData && state.todayData.date === today) {
@@ -833,12 +1001,178 @@
             } catch (e) {
                 todayData = { glasses: 0, date: getTodayString() };
             }
+            
+            if (scriptUrl) {
+                updateSyncStatus('synced', 'Verbunden');
+            }
+        }
+
+        // ===== GOOGLE SHEETS SYNC =====
+        async function syncToServer() {
+            if (!scriptUrl) return;
+            
+            updateSyncStatus('syncing');
+            
+            try {
+                const url = `${scriptUrl}?action=save&date=${todayData.date}&glasses=${todayData.glasses}`;
+                const response = await fetch(url, { mode: 'no-cors' });
+                updateSyncStatus('synced', 'Synchronisiert');
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateSyncStatus('error', 'Sync-Fehler');
+            }
+        }
+
+        async function pullFromServer() {
+            if (!scriptUrl) {
+                alert('Bitte erst Script-URL eingeben');
+                return;
+            }
+            
+            updateSyncStatus('syncing', 'Lade vom Server...');
+            
+            try {
+                const response = await fetch(`${scriptUrl}?action=get`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // Merge mit lokalen Daten
+                    result.data.forEach(serverDay => {
+                        const localIndex = history.findIndex(h => h.date === serverDay.date);
+                        if (localIndex >= 0) {
+                            // Server-Daten überschreiben lokal
+                            history[localIndex].glasses = serverDay.glasses;
+                        } else {
+                            history.push(serverDay);
+                        }
+                    });
+                    
+                    // Heute aktualisieren
+                    const today = getTodayString();
+                    const todayFromServer = result.data.find(d => d.date === today);
+                    if (todayFromServer) {
+                        todayData.glasses = todayFromServer.glasses;
+                    }
+                    
+                    history.sort((a, b) => b.date.localeCompare(a.date));
+                    saveState();
+                    updateDisplay();
+                    updateSyncStatus('synced', 'Geladen!');
+                    alert(`${result.data.length} Tage vom Server geladen`);
+                } else {
+                    throw new Error(result.error || 'Unbekannter Fehler');
+                }
+            } catch (error) {
+                console.error('Pull error:', error);
+                updateSyncStatus('error', 'Fehler');
+                alert('Fehler beim Laden: ' + error.message);
+            }
+        }
+
+        async function pushToServer() {
+            if (!scriptUrl) {
+                alert('Bitte erst Script-URL eingeben');
+                return;
+            }
+            
+            updateSyncStatus('syncing', 'Sende zum Server...');
+            
+            const allData = [...history];
+            const today = getTodayString();
+            if (todayData.glasses > 0) {
+                const idx = allData.findIndex(d => d.date === today);
+                if (idx >= 0) {
+                    allData[idx].glasses = todayData.glasses;
+                } else {
+                    allData.push({ date: today, glasses: todayData.glasses });
+                }
+            }
+            
+            try {
+                let successCount = 0;
+                for (const day of allData) {
+                    await fetch(`${scriptUrl}?action=save&date=${day.date}&glasses=${day.glasses}`, { mode: 'no-cors' });
+                    successCount++;
+                }
+                updateSyncStatus('synced', 'Gesendet!');
+                alert(`${successCount} Tage zum Server gesendet`);
+            } catch (error) {
+                console.error('Push error:', error);
+                updateSyncStatus('error', 'Fehler');
+                alert('Fehler beim Senden: ' + error.message);
+            }
+        }
+
+        function saveScriptUrl() {
+            scriptUrl = scriptUrlInput.value.trim();
+            saveState();
+            
+            if (scriptUrl) {
+                updateSyncStatus('synced', 'Verbunden');
+                connectionStatus.className = 'connection-status connected';
+                connectionStatus.innerHTML = '<span>🟢</span> URL gespeichert';
+            } else {
+                updateSyncStatus('local', 'Lokal');
+                connectionStatus.className = 'connection-status disconnected';
+                connectionStatus.innerHTML = '<span>⚪</span> Nicht verbunden';
+            }
+        }
+
+        async function testConnection() {
+            if (!scriptUrlInput.value.trim()) {
+                alert('Bitte erst URL eingeben');
+                return;
+            }
+            
+            scriptUrl = scriptUrlInput.value.trim();
+            connectionStatus.className = 'connection-status';
+            connectionStatus.innerHTML = '<span>🟡</span> Teste...';
+            
+            try {
+                const response = await fetch(`${scriptUrl}?action=get`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    connectionStatus.className = 'connection-status connected';
+                    connectionStatus.innerHTML = `<span>🟢</span> Verbunden! (${result.data.length} Einträge)`;
+                    saveScriptUrl();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                connectionStatus.className = 'connection-status disconnected';
+                connectionStatus.innerHTML = `<span>🔴</span> Fehler: ${error.message}`;
+            }
+        }
+
+        function updateLocalDataInfo() {
+            document.getElementById('localDataInfo').textContent = `${history.length} Tage gespeichert`;
+        }
+
+        function clearLocalData() {
+            if (confirm('Alle lokalen Daten löschen?')) {
+                history = [];
+                todayData = { glasses: 0, date: getTodayString() };
+                saveState();
+                updateDisplay();
+                updateLocalDataInfo();
+                alert('Lokale Daten gelöscht');
+            }
         }
 
         // ===== OFFLINE =====
-        window.addEventListener('online', () => document.body.classList.remove('offline'));
-        window.addEventListener('offline', () => document.body.classList.add('offline'));
-        if (!navigator.onLine) document.body.classList.add('offline');
+        window.addEventListener('online', () => {
+            document.body.classList.remove('offline');
+            if (scriptUrl) syncToServer();
+        });
+        window.addEventListener('offline', () => {
+            document.body.classList.add('offline');
+            updateSyncStatus('offline');
+        });
+        if (!navigator.onLine) {
+            document.body.classList.add('offline');
+            updateSyncStatus('offline');
+        }
 
         // ===== SERVICE WORKER =====
         if ('serviceWorker' in navigator) {
@@ -853,6 +1187,11 @@
         updateDisplay();
         updateTime();
         setInterval(updateTime, 1000);
+        
+        // Initial sync
+        if (scriptUrl && navigator.onLine) {
+            updateSyncStatus('synced', 'Verbunden');
+        }
     </script>
 </body>
 </html>
