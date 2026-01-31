@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1a1d23">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Wasser">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
+    <title>Wasser-Tracker</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-bg: #1a1d23;
+            --color-surface: #242830;
+            --color-text: #e8eaed;
+            --color-text-muted: #9aa0a6;
+            --color-water: #38bdf8;
+            --color-water-light: #7dd3fc;
+            --color-success: #4ade80;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            user-select: none;
+        }
+
+        /* ===== SCREEN CONTAINER ===== */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .screen.hidden {
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .screen.hidden-left {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .header-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .header-date {
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+        }
+
+        .header-time {
+            font-size: 1.25rem;
+            font-weight: 300;
+        }
+
+        .header-btn {
+            background: none;
+            border: none;
+            color: var(--color-water);
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        /* ===== TRACKER SCREEN ===== */
+        .tracker-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            gap: 1.5rem;
+        }
+
+        .bottle-container {
+            height: 40vh;
+            max-height: 280px;
+            aspect-ratio: 0.45;
+        }
+
+        .bottle-svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.2));
+        }
+
+        .bottle-glass {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.25);
+            stroke-width: 2;
+        }
+
+        .bottle-cap {
+            fill: var(--color-surface);
+            stroke: rgba(255, 255, 255, 0.25);
+            stroke-width: 1.5;
+        }
+
+        .water {
+            fill: var(--color-water);
+            opacity: 0.85;
+            transition: all 0.5s ease;
+        }
+
+        .marking-line {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 0.5;
+            stroke-dasharray: 2, 2;
+        }
+
+        .marking-text {
+            fill: var(--color-text-muted);
+            font-size: 8px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stats-display {
+            text-align: center;
+        }
+
+        .stats-value {
+            font-size: 3.5rem;
+            font-weight: 500;
+            color: var(--color-water);
+            line-height: 1;
+        }
+
+        .stats-value.complete {
+            color: var(--color-success);
+        }
+
+        .stats-label {
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .motivation {
+            font-size: 1rem;
+            color: var(--color-text-muted);
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* ===== BUTTONS ===== */
+        .button-area {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            background: var(--color-surface);
+            color: var(--color-text);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--color-water);
+            color: var(--color-bg);
+            font-size: 1.1rem;
+            padding: 1.25rem;
+        }
+
+        .btn-primary.complete {
+            background: var(--color-success);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--color-text-muted);
+            color: var(--color-text-muted);
+        }
+
+        /* ===== STATISTIK SCREEN ===== */
+        .stats-screen {
+            background: var(--color-bg);
+        }
+
+        .stats-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .stats-card {
+            background: var(--color-surface);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .stats-card-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .stats-card-subtitle {
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Chart */
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 120px;
+            gap: 0.4rem;
+        }
+
+        .chart-bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            height: 100%;
+        }
+
+        .chart-bar-wrapper {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .chart-bar {
+            width: 100%;
+            max-width: 32px;
+            background: var(--color-water);
+            border-radius: 4px 4px 0 0;
+            opacity: 0.5;
+            position: relative;
+            min-height: 2px;
+            transition: height 0.3s ease;
+        }
+
+        .chart-bar.today {
+            opacity: 1;
+        }
+
+        .chart-bar.complete {
+            background: var(--color-success);
+        }
+
+        .chart-bar-value {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+        }
+
+        .chart-label {
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+            margin-top: 0.4rem;
+        }
+
+        .chart-label.today {
+            color: var(--color-water);
+            font-weight: 500;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-item {
+            background: var(--color-surface);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 1.75rem;
+            font-weight: 500;
+            color: var(--color-water);
+        }
+
+        .summary-label {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Export */
+        .export-section {
+            padding: 0 1rem 1rem;
+        }
+
+        .export-info {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+
+        .celebrate {
+            animation: celebrate 0.4s ease;
+        }
+
+        /* ===== OFFLINE INDICATOR ===== */
+        .offline-bar {
+            display: none;
+            background: #f59e0b;
+            color: #000;
+            text-align: center;
+            padding: 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        body.offline .offline-bar {
+            display: block;
+        }
+
+        /* ===== DESKTOP ===== */
+        @media (min-width: 600px) {
+            .tracker-main {
+                flex-direction: row;
+                gap: 3rem;
+            }
+
+            .bottle-container {
+                height: 50vh;
+                max-height: 350px;
+            }
+
+            .content-side {
+                text-align: left;
+            }
+
+            .stats-display {
+                text-align: left;
+            }
+
+            .motivation {
+                text-align: left;
+            }
+
+            .button-area {
+                max-width: 400px;
+                margin: 0 auto;
+            }
+
+            .stats-content {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-bar">Offline – Daten werden lokal gespeichert</div>
+
+    <!-- ===== TRACKER SCREEN ===== -->
+    <div class="screen" id="trackerScreen">
+        <header class="header">
+            <div>
+                <div class="header-date" id="dateDisplay"></div>
+            </div>
+            <div class="header-time" id="currentTime">00:00</div>
+            <button class="header-btn" onclick="showStats()">Statistik →</button>
+        </header>
+
+        <main class="tracker-main">
+            <div class="bottle-container">
+                <svg class="bottle-svg" viewBox="0 0 80 200" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <clipPath id="bottleClip">
+                            <path d="M25,45 L25,180 Q25,190 40,190 Q55,190 55,180 L55,45 Z"/>
+                        </clipPath>
+                        <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#38bdf8;stop-opacity:0.9" />
+                            <stop offset="50%" style="stop-color:#7dd3fc;stop-opacity:0.95" />
+                            <stop offset="100%" style="stop-color:#38bdf8;stop-opacity:0.9" />
+                        </linearGradient>
+                    </defs>
+
+                    <rect class="bottle-cap" x="30" y="5" width="20" height="15" rx="3"/>
+                    <path class="bottle-glass" d="M32,20 L32,35 L25,45 L25,180 Q25,190 40,190 Q55,190 55,180 L55,45 L48,35 L48,20"/>
+                    <rect class="water" id="waterFill" x="25" y="190" width="30" height="0" clip-path="url(#bottleClip)" fill="url(#waterGradient)"/>
+                    <g id="markings"></g>
+                    <path d="M28,50 L28,180 Q28,185 32,185 L32,50 Z" fill="#7dd3fc" opacity="0.15"/>
+                </svg>
+            </div>
+
+            <div class="content-side">
+                <div class="stats-display">
+                    <div class="stats-value" id="glassCount">0/8</div>
+                    <div class="stats-label" id="mlCount">0 ml</div>
+                </div>
+                <div class="motivation" id="motivation">Starte mit einem Glas Wasser!</div>
+            </div>
+        </main>
+
+        <div class="button-area">
+            <button class="btn btn-primary" id="drinkBtn" onclick="drinkGlass()">
+                🥤 Getrunken
+            </button>
+            <div class="btn-row">
+                <button class="btn" onclick="undoGlass()">↩ Zurück</button>
+                <button class="btn" onclick="resetToday()">🔄 Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STATISTIK SCREEN ===== -->
+    <div class="screen stats-screen hidden" id="statsScreen">
+        <header class="header">
+            <button class="header-btn" onclick="showTracker()">← Zurück</button>
+            <span class="header-title">Statistik</span>
+            <div style="width: 60px;"></div>
+        </header>
+
+        <div class="stats-content">
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-value" id="avgGlasses">0</div>
+                    <div class="summary-label">Ø Gläser / Tag</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="totalDays">0</div>
+                    <div class="summary-label">Tage erfasst</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="goalDays">0</div>
+                    <div class="summary-label">Ziel erreicht</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="totalLiters">0</div>
+                    <div class="summary-label">Liter gesamt</div>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="stats-card-title">Letzte 7 Tage</div>
+                <div class="stats-card-subtitle" id="weekAvg">Ø 0 Gläser pro Tag</div>
+                <div class="chart" id="chart"></div>
+            </div>
+        </div>
+
+        <div class="export-section">
+            <button class="btn btn-outline" onclick="exportCSV()">📊 Als CSV exportieren</button>
+            <div class="export-info">Alle Daten herunterladen für Excel</div>
+        </div>
+    </div>
+
+    <script>
+        // ===== KONFIGURATION =====
+        const TOTAL_GLASSES = 8;
+        const ML_PER_GLASS = 250;
+        
+        // ===== STATE =====
+        let todayData = { glasses: 0, date: '' };
+        let history = [];
+        
+        // ===== DOM =====
+        const waterFill = document.getElementById('waterFill');
+        const glassCountEl = document.getElementById('glassCount');
+        const mlCountEl = document.getElementById('mlCount');
+        const motivationEl = document.getElementById('motivation');
+        const drinkBtn = document.getElementById('drinkBtn');
+        const currentTimeEl = document.getElementById('currentTime');
+        const dateDisplayEl = document.getElementById('dateDisplay');
+        const markingsGroup = document.getElementById('markings');
+        const chartEl = document.getElementById('chart');
+        const trackerScreen = document.getElementById('trackerScreen');
+        const statsScreen = document.getElementById('statsScreen');
+        
+        const BOTTLE_TOP = 45;
+        const BOTTLE_BOTTOM = 190;
+        const BOTTLE_HEIGHT = BOTTLE_BOTTOM - BOTTLE_TOP;
+
+        const motivations = [
+            "Starte mit einem Glas Wasser!",
+            "Guter Anfang!",
+            "Weiter so!",
+            "Halbzeit! 💪",
+            "Mehr als die Hälfte!",
+            "Fast geschafft!",
+            "Noch zwei!",
+            "Nur noch eins!",
+            "🎉 Geschafft!"
+        ];
+
+        // ===== NAVIGATION =====
+        function showStats() {
+            updateStatsScreen();
+            trackerScreen.classList.add('hidden-left');
+            statsScreen.classList.remove('hidden');
+        }
+
+        function showTracker() {
+            trackerScreen.classList.remove('hidden-left');
+            statsScreen.classList.add('hidden');
+        }
+
+        // ===== HELPERS =====
+        function getTodayString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function formatDateShort(dateString) {
+            const date = new Date(dateString);
+            const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+            return days[date.getDay()];
+        }
+
+        function initMarkings() {
+            markingsGroup.innerHTML = '';
+            for (let i = 1; i <= TOTAL_GLASSES; i++) {
+                const y = BOTTLE_BOTTOM - (i * BOTTLE_HEIGHT / TOTAL_GLASSES);
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('class', 'marking-line');
+                line.setAttribute('x1', '55');
+                line.setAttribute('y1', y);
+                line.setAttribute('x2', '62');
+                line.setAttribute('y2', y);
+                markingsGroup.appendChild(line);
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('class', 'marking-text');
+                text.setAttribute('x', '65');
+                text.setAttribute('y', y + 3);
+                text.textContent = i;
+                markingsGroup.appendChild(text);
+            }
+        }
+
+        // ===== DISPLAY UPDATE =====
+        function updateDisplay() {
+            const glasses = todayData.glasses;
+            
+            const fillHeight = (glasses / TOTAL_GLASSES) * BOTTLE_HEIGHT;
+            const fillY = BOTTLE_BOTTOM - fillHeight;
+            waterFill.setAttribute('y', fillY);
+            waterFill.setAttribute('height', fillHeight);
+            
+            glassCountEl.textContent = `${glasses}/${TOTAL_GLASSES}`;
+            mlCountEl.textContent = `${glasses * ML_PER_GLASS} ml`;
+            motivationEl.textContent = motivations[Math.min(glasses, TOTAL_GLASSES)];
+            
+            if (glasses >= TOTAL_GLASSES) {
+                glassCountEl.classList.add('complete');
+                drinkBtn.classList.add('complete');
+                drinkBtn.textContent = '✓ Geschafft!';
+            } else {
+                glassCountEl.classList.remove('complete');
+                drinkBtn.classList.remove('complete');
+                drinkBtn.textContent = '🥤 Getrunken';
+            }
+            
+            saveState();
+        }
+
+        function updateStatsScreen() {
+            const today = getTodayString();
+            
+            // Alle Daten (Historie + Heute)
+            const allData = [...history];
+            const todayIndex = allData.findIndex(d => d.date === today);
+            if (todayIndex >= 0) {
+                allData[todayIndex].glasses = todayData.glasses;
+            } else if (todayData.glasses > 0) {
+                allData.push({ date: today, glasses: todayData.glasses });
+            }
+            
+            // Summary berechnen
+            const totalDays = allData.length;
+            const goalDays = allData.filter(d => d.glasses >= TOTAL_GLASSES).length;
+            const totalGlasses = allData.reduce((sum, d) => sum + d.glasses, 0);
+            const avgGlasses = totalDays > 0 ? (totalGlasses / totalDays).toFixed(1) : 0;
+            const totalLiters = ((totalGlasses * ML_PER_GLASS) / 1000).toFixed(1);
+            
+            document.getElementById('avgGlasses').textContent = avgGlasses;
+            document.getElementById('totalDays').textContent = totalDays;
+            document.getElementById('goalDays').textContent = goalDays;
+            document.getElementById('totalLiters').textContent = totalLiters;
+            
+            // Letzte 7 Tage
+            const last7Days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                let glasses = 0;
+                if (dateStr === today) {
+                    glasses = todayData.glasses;
+                } else {
+                    const found = history.find(h => h.date === dateStr);
+                    if (found) glasses = found.glasses;
+                }
+                
+                last7Days.push({ date: dateStr, glasses, isToday: dateStr === today });
+            }
+            
+            const weekTotal = last7Days.reduce((sum, d) => sum + d.glasses, 0);
+            const weekDaysWithData = last7Days.filter(d => d.glasses > 0).length;
+            const weekAvg = weekDaysWithData > 0 ? (weekTotal / weekDaysWithData).toFixed(1) : 0;
+            document.getElementById('weekAvg').textContent = `Ø ${weekAvg} Gläser pro Tag`;
+            
+            // Chart rendern
+            chartEl.innerHTML = '';
+            const maxHeight = 90;
+            
+            last7Days.forEach(day => {
+                const container = document.createElement('div');
+                container.className = 'chart-bar-container';
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'chart-bar-wrapper';
+                
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                if (day.isToday) bar.classList.add('today');
+                if (day.glasses >= TOTAL_GLASSES) bar.classList.add('complete');
+                
+                const height = (day.glasses / TOTAL_GLASSES) * maxHeight;
+                bar.style.height = Math.max(day.glasses > 0 ? 4 : 2, height) + 'px';
+                
+                if (day.glasses > 0) {
+                    const value = document.createElement('span');
+                    value.className = 'chart-bar-value';
+                    value.textContent = day.glasses;
+                    bar.appendChild(value);
+                }
+                
+                wrapper.appendChild(bar);
+                
+                const label = document.createElement('div');
+                label.className = 'chart-label';
+                if (day.isToday) label.classList.add('today');
+                label.textContent = day.isToday ? 'Heute' : formatDateShort(day.date);
+                
+                container.appendChild(wrapper);
+                container.appendChild(label);
+                chartEl.appendChild(container);
+            });
+        }
+
+        // ===== ACTIONS =====
+        function drinkGlass() {
+            if (todayData.glasses < TOTAL_GLASSES) {
+                todayData.glasses++;
+                updateDisplay();
+                
+                waterFill.classList.add('celebrate');
+                setTimeout(() => waterFill.classList.remove('celebrate'), 400);
+                
+                if (navigator.vibrate) navigator.vibrate(30);
+            }
+        }
+
+        function undoGlass() {
+            if (todayData.glasses > 0) {
+                todayData.glasses--;
+                updateDisplay();
+            }
+        }
+
+        function resetToday() {
+            if (todayData.glasses > 0 && confirm('Heute zurücksetzen?')) {
+                todayData.glasses = 0;
+                updateDisplay();
+            }
+        }
+
+        function exportCSV() {
+            const allData = [...history];
+            const today = getTodayString();
+            
+            const todayIndex = allData.findIndex(d => d.date === today);
+            if (todayIndex >= 0) {
+                allData[todayIndex].glasses = todayData.glasses;
+            } else if (todayData.glasses > 0) {
+                allData.push({ date: today, glasses: todayData.glasses });
+            }
+            
+            allData.sort((a, b) => a.date.localeCompare(b.date));
+            
+            let csv = 'Datum;Gläser;Milliliter;Ziel erreicht\n';
+            allData.forEach(day => {
+                const ml = day.glasses * ML_PER_GLASS;
+                const reached = day.glasses >= TOTAL_GLASSES ? 'Ja' : 'Nein';
+                csv += `${day.date};${day.glasses};${ml};${reached}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `wasser-tracker-${today}.csv`;
+            link.click();
+        }
+
+        // ===== TIME =====
+        function updateTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            dateDisplayEl.textContent = now.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+            
+            const today = getTodayString();
+            if (todayData.date && todayData.date !== today) {
+                saveToHistory(todayData.date, todayData.glasses);
+                todayData = { glasses: 0, date: today };
+                updateDisplay();
+            }
+        }
+
+        // ===== STORAGE =====
+        function saveToHistory(date, glasses) {
+            if (glasses > 0) {
+                const existingIndex = history.findIndex(h => h.date === date);
+                if (existingIndex >= 0) {
+                    history[existingIndex].glasses = glasses;
+                } else {
+                    history.push({ date, glasses });
+                }
+                history.sort((a, b) => b.date.localeCompare(a.date));
+                history = history.slice(0, 365);
+            }
+        }
+
+        function saveState() {
+            todayData.date = getTodayString();
+            saveToHistory(todayData.date, todayData.glasses);
+            localStorage.setItem('waterTrackerPWA', JSON.stringify({ todayData, history }));
+        }
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('waterTrackerPWA');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    history = state.history || [];
+                    
+                    const today = getTodayString();
+                    if (state.todayData && state.todayData.date === today) {
+                        todayData = state.todayData;
+                    } else {
+                        todayData = { glasses: 0, date: today };
+                    }
+                }
+            } catch (e) {
+                todayData = { glasses: 0, date: getTodayString() };
+            }
+        }
+
+        // ===== OFFLINE =====
+        window.addEventListener('online', () => document.body.classList.remove('offline'));
+        window.addEventListener('offline', () => document.body.classList.add('offline'));
+        if (!navigator.onLine) document.body.classList.add('offline');
+
+        // ===== SERVICE WORKER =====
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.log('SW registriert'))
+                .catch(err => console.log('SW Fehler:', err));
+        }
+
+        // ===== INIT =====
+        initMarkings();
+        loadState();
+        updateDisplay();
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>
