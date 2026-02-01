@@ -659,11 +659,17 @@
             </div>
 
             <div class="settings-section">
+                <div class="settings-title">Heutiger Zähler</div>
+                <div class="settings-desc">Nur den heutigen Zähler zurücksetzen (Statistik bleibt erhalten)</div>
+                <button class="btn btn-outline" onclick="resetToday()" style="width: 100%;">🔄 Heute auf 0 zurücksetzen</button>
+            </div>
+
+            <div class="settings-section">
                 <div class="settings-title">Lokale Daten</div>
                 <div class="settings-desc" id="localDataInfo">
                     0 Tage gespeichert
                 </div>
-                <button class="btn btn-outline" onclick="clearLocalData()" style="width: 100%;">🗑 Lokale Daten löschen</button>
+                <button class="btn btn-outline" onclick="clearLocalData()" style="width: 100%; color: #ff6b6b;">⚠️ Alle Statistiken löschen</button>
             </div>
         </div>
     </div>
@@ -990,12 +996,18 @@
                     const state = JSON.parse(saved);
                     history = state.history || [];
                     scriptUrl = state.scriptUrl || '';
-                    
+
                     const today = getTodayString();
                     if (state.todayData && state.todayData.date === today) {
                         todayData = state.todayData;
                     } else {
+                        // Tageswechsel: Alte Daten in Historie speichern, dann zurücksetzen
+                        if (state.todayData && state.todayData.date && state.todayData.glasses > 0) {
+                            saveToHistory(state.todayData.date, state.todayData.glasses);
+                        }
                         todayData = { glasses: 0, date: today };
+                        // Historie sofort speichern damit sie nicht verloren geht
+                        localStorage.setItem('waterTrackerSync', JSON.stringify({ todayData, history, scriptUrl }));
                     }
                 }
             } catch (e) {
@@ -1176,14 +1188,23 @@
             document.getElementById('localDataInfo').textContent = `${history.length} Tage gespeichert`;
         }
 
+        function resetToday() {
+            if (confirm('Heutigen Zähler auf 0 zurücksetzen?')) {
+                todayData = { glasses: 0, date: getTodayString() };
+                saveState();
+                updateDisplay();
+                syncToServer();
+            }
+        }
+
         function clearLocalData() {
-            if (confirm('Alle lokalen Daten löschen?')) {
+            if (confirm('ACHTUNG: Alle gespeicherten Statistiken unwiderruflich löschen?')) {
                 history = [];
                 todayData = { glasses: 0, date: getTodayString() };
                 saveState();
                 updateDisplay();
                 updateLocalDataInfo();
-                alert('Lokale Daten gelöscht');
+                alert('Alle Daten gelöscht');
             }
         }
 
